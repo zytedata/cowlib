@@ -741,6 +741,8 @@ response_expected_size(Frame=#headers{id=StreamID, fin=IsFin}, State, Type,
 		[_] when Status >= 100, Status =< 199 ->
 			stream_reset(StreamID, State, protocol_error,
 				'Content-length header received in a 1xx response. (RFC7230 3.3.2)');
+		[<<"0">>] when Status =:= 204 ->
+			headers_frame(Frame, State, Type, Stream, PseudoHeaders, Headers, 0);
 		[_] when Status =:= 204 ->
 			stream_reset(StreamID, State, protocol_error,
 				'Content-length header received in a 204 response. (RFC7230 3.3.2)');
