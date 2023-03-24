@@ -259,8 +259,11 @@ settings_init(Opts) ->
 		initial_window_size, 65535),
 	S3 = setting_from_opt(S2, Opts, max_frame_size_received,
 		max_frame_size, 16384),
-	%% @todo max_header_list_size
-	setting_from_opt(S3, Opts, enable_connect_protocol,
+	S4 = setting_from_opt(S3, Opts, max_header_list_size,
+		max_header_list_size, infinity),
+	S5 = setting_from_opt(S4, Opts, enable_push,
+		enable_push, true),
+	setting_from_opt(S5, Opts, enable_connect_protocol,
 		enable_connect_protocol, false).
 
 setting_from_opt(Settings, Opts, OptName, SettingName, Default) ->
@@ -1172,12 +1175,13 @@ remove_http11_headers(Headers) ->
 	end, Headers).
 
 merge_pseudo_headers(PseudoHeaders, Headers0) ->
+	List = [{K, maps:get(K, PseudoHeaders)} || K <- [path,scheme,authority,method]],
 	lists:foldl(fun
 		({status, Status}, Acc) when is_integer(Status) ->
 			[{<<":status">>, integer_to_binary(Status)}|Acc];
 		({Name, Value}, Acc) ->
 			[{iolist_to_binary([$:, atom_to_binary(Name, latin1)]), Value}|Acc]
-		end, Headers0, maps:to_list(PseudoHeaders)).
+		end, Headers0, List).
 
 -spec prepare_trailers(cow_http2:streamid(), State, cow_http:headers())
 	-> {ok, iodata(), State} when State::http2_machine().

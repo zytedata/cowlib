@@ -401,10 +401,10 @@ data_header(StreamID, IsFin, Len) ->
 
 %% @todo Check size of HeaderBlock and use CONTINUATION frames if needed.
 headers(StreamID, IsFin, HeaderBlock) ->
-	Len = iolist_size(HeaderBlock),
+	Len = iolist_size(HeaderBlock)+5,
 	FlagEndStream = flag_fin(IsFin),
 	FlagEndHeaders = 1,
-	[<< Len:24, 1:8, 0:5, FlagEndHeaders:1, 0:1, FlagEndStream:1, 0:1, StreamID:31 >>, HeaderBlock].
+	[<< Len:24, 1:8, 0:2, 1:1, 0:2, FlagEndHeaders:1, 0:1, FlagEndStream:1, 0:1, StreamID:31, 1:1, 0:31, 255:8 >>, HeaderBlock].
 
 priority(StreamID, E, DepStreamID, Weight) ->
 	FlagExclusive = exclusive(E),
@@ -420,6 +420,12 @@ settings(Settings) ->
 	[<< Len:24, 4:8, 0:40 >>, Payload].
 
 settings_payload(Settings) ->
+	List = lists:filtermap(fun(Key) ->
+		case maps:find(Key, Settings) of
+			{ok, Value} -> {true, {Key, Value}};
+			error -> false
+		end
+	end, [header_table_size, enable_push, max_concurrent_streams, initial_window_size, max_header_list_size]),
 	[case Key of
 		header_table_size -> <<1:16, Value:32>>;
 		enable_push when Value -> <<2:16, 1:32>>;
@@ -432,7 +438,7 @@ settings_payload(Settings) ->
 		max_header_list_size -> <<6:16, Value:32>>;
 		enable_connect_protocol when Value -> <<8:16, 1:32>>;
 		enable_connect_protocol -> <<8:16, 0:32>>
-	end || {Key, Value} <- maps:to_list(Settings)].
+	end || {Key, Value} <- List].
 
 settings_ack() ->
 	<< 0:24, 4:8, 1:8, 0:32 >>.
